@@ -25,19 +25,37 @@ mqttClient.on('error', (err) => {
 // Cibicom sends POST to this endpoint
 app.post('/lorawan', (req, res) => {
   const body = req.body;
-  console.log('[CIBICOM] Uplink received:', JSON.stringify(body));
+
+  // Solo procesar cmd:gw (ignorar cmd:rx y otros)
+  if (body.cmd !== 'gw') {
+    console.log('[CIBICOM] Skipping cmd:', body.cmd);
+    return res.status(200).send('OK');
+  }
 
   // Decode hex payload
   const hexData = body.data || '';
   const decoded = Buffer.from(hexData, 'hex').toString('ascii');
   console.log('[CIBICOM] Decoded payload:', decoded);
 
+  // Solo publicar si es un mensaje conocido del collar
+  if (decoded !== 'PET_MISSING' && decoded !== 'PET_RETURNED') {
+    console.log('[CIBICOM] Skipping unknown payload:', decoded);
+    return res.status(200).send('OK');
+  }
+
+  // Coger la mejor antena (la de mayor RSSI = más cercana al perro)
+  const gws = body.gws || [];
+  const bestGw = gws.reduce((best, gw) =>
+    (gw.rssi > (best.rssi || -999)) ? gw : best, {});
+
   // Build MQTT message
   const message = JSON.stringify({
-    status:  decoded,          // "PET_MISSING" or "PET_RETURNED"
-    rssi:    body.rssi  || 0,
-    snr:     body.snr   || 0,
-    devEUI:  body.EUI   || '',
+    status:  decoded,
+    devEUI:  body.EUI    || '',
+    rssi:    bestGw.rssi || 0,
+    snr:     bestGw.snr  || 0,
+    gw_lat:  bestGw.lat  || 0,
+    gw_lon:  bestGw.lon  || 0,
     time:    new Date().toISOString()
   });
 
