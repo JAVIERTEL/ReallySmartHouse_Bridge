@@ -26,7 +26,7 @@ mqttClient.on('error', (err) => {
 app.post('/lorawan', (req, res) => {
   const body = req.body;
 
-  // Solo procesar cmd:gw (ignorar cmd:rx y otros)
+  // only process cmd:gw (ignore cmd:rx and others)
   if (body.cmd !== 'gw') {
     console.log('[CIBICOM] Skipping cmd:', body.cmd);
     return res.status(200).send('OK');
@@ -43,7 +43,7 @@ app.post('/lorawan', (req, res) => {
     return res.status(200).send('OK');
   }
 
-  // Coger la mejor antena (la de mayor RSSI = más cercana al perro)
+  // Take the best gateway (the one with the highest RSSI = closest to the dog)
   const gws = body.gws || [];
   const bestGw = gws.reduce((best, gw) =>
     (gw.rssi > (best.rssi || -999)) ? gw : best, {});
